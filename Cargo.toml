@@ -1,0 +1,43 @@
+[package]
+name          = "nvram"
+version       = "0.1.0"
+edition       = "2021"
+rust-version  = "1.74"
+license       = "MIT"
+description   = "Shared-memory NVRAM store for Tomato64, ABI-compatible with libnvram"
+repository    = "https://github.com/tomato64/libnvram-rs"
+readme        = "README.md"
+
+# The cdylib is named so that the produced artefact is exactly `libnvram.so`,
+# which is what every Tomato64 binary links against. The rlib exists only so
+# the integration tests in tests/ can link the crate directly.
+[lib]
+name       = "nvram"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Never enabled for the firmware. Adds runtime path overrides so the test
+# suite can use a scratch directory instead of /nvram.
+testing = []
+
+[dependencies]
+libc = { version = "0.2", default-features = false }
+
+[profile.release]
+# panic=abort is mandatory, not an optimisation: unwinding across the C FFI
+# boundary is undefined behaviour. It also removes the unwind tables, which is
+# the single largest size win. Note Buildroot overrides opt-level, lto,
+# codegen-units and debug from the environment (package/pkg-cargo.mk); the
+# Tomato64 .mk re-forces them via LIBNVRAM_RS_CARGO_ENV.
+panic         = "abort"
+strip         = "symbols"
+opt-level     = "z"
+lto           = true
+codegen-units = 1
+
+# Test-only. Spawned by the integration suite to exercise genuine
+# cross-process behaviour; never built for the firmware.
+[[bin]]
+name             = "nvram-testhelper"
+path             = "src/bin/nvram-testhelper.rs"
+required-features = ["testing"]
